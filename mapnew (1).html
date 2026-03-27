@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Indoor Navigation (KARAD) - Smart Pathfinding</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 32px;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      font-weight: 600;
+    }
+
+    .controls {
+      max-width: 900px;
+      margin: 0 auto 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      backdrop-filter: blur(10px);
+    }
+
+    .controls label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .controls select, .controls button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    }
+
+    .controls select {
+      border-color: #cbd5e0;
+      background: white;
+      min-width: 200px;
+    }
+
+    .controls select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .controls button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .controls button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .controls button:active {
+      transform: translateY(0);
+    }
+
+    .controls button:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .controls button.stop-btn {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .controls button.stop-btn:hover {
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    }
+
+    .controls button.start-btn {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .controls button.start-btn:hover {
+      box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+    }
+
+    .controls button.nav-btn {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      font-size: 16px;
+      padding: 12px 24px;
+    }
+
+    .controls button.nav-btn:hover {
+      box-shadow: 0 6px 20px rgba(67, 233, 123, 0.4);
+    }
+
+    #map {
+      height: 70vh;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .info-card {
+      max-width: 900px;
+      margin: 10px auto;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-info {
+      border-left: 4px solid #43e97b;
+    }
+
+    .status-info strong {
+      color: #2d3748;
+    }
+
+    .status-info span {
+      color: #38a169;
+      font-weight: 600;
+    }
+
+    .navigation-info {
+      border-left: 4px solid #4facfe;
+      background: rgba(79, 172, 254, 0.1);
+    }
+
+    .navigation-info strong {
+      color: #2c5282;
+    }
+
+    .path-info {
+      border-left: 4px solid #667eea;
+      font-size: 15px;
+    }
+
+    .toggle-section {
+      max-width: 900px;
+      margin: 10px auto;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      text-align: center;
+    }
+
+    .toggle-section label {
+      margin: 0 15px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #4a5568;
+    }
+
+    .toggle-section input[type="checkbox"] {
+      margin-right: 6px;
+      cursor: pointer;
+    }
+
+    .tracking-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      margin-left: 12px;
+      font-weight: 600;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .tracking-active {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      color: white;
+      box-shadow: 0 0 20px rgba(67, 233, 123, 0.5);
+    }
+
+    .tracking-inactive {
+      background: #cbd5e0;
+      color: #718096;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .navigation-info {
+      color: #2c5282;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      margin: 10px 0;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+      border-radius: 6px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 10px rgba(67, 233, 123, 0.5);
+    }
+
+    .connection-status {
+      max-width: 900px;
+      margin: 10px auto;
+      padding: 12px;
+      background: rgba(255, 243, 224, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      text-align: center;
+      color: #c05621;
+      font-size: 14px;
+      font-weight: 500;
+      border-left: 4px solid #ed8936;
+    }
+
+    .user-position-marker {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    .leaflet-zoom-animated {
+      transition: none !important;
+    }
+
+    .nav-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      h2 {
+        font-size: 24px;
+      }
+
+      .controls select {
+        width: 100%;
+      }
+
+      .nav-controls {
+        width: 100%;
+      }
+
+      .nav-controls button {
+        flex: 1;
+        min-width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🧭 Indoor Navigation (KARAD) <span id="trackingBadge" class="tracking-badge tracking-inactive">Tracking: OFF</span></h2>
+
+  <div id="connectionStatus" class="connection-status" style="display: none;">
+    ⚠️ <span id="connectionMessage">Connecting to server...</span>
+  </div>
+
+  <div id="statusInfo" class="info-card status-info">
+    <strong>Current Location:</strong> <span id="currentLocation">Initializing...</span>
+  </div>
+
+  <div id="navigationInfo" class="info-card navigation-info" style="display: none;">
+    <strong>Navigation Active:</strong> <span id="navStatus">Ready</span>
+    <div class="progress-bar">
+      <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+    </div>
+    <small>Next: <span id="nextStep">-</span></small>
+  </div>
+
+  <div class="controls">
+    <label for="end">📍 Destination:</label>
+    <select id="end"><option value="">Select Destination</option></select>
+
+    <div class="nav-controls">
+      <button id="findPathBtn" class="nav-btn" onclick="findPath()" disabled>🗺️ Find Route</button>
+      <button onclick="clearPath()">🗑️ Clear</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="start-btn" onclick="startLocationPolling()">▶️ Start Tracking</button>
+    <button class="stop-btn" onclick="stopLocationPolling()">⏸️ Stop Tracking</button>
+    <button onclick="fetchUserLocation()">🔄 Refresh</button>
+  </div>
+
+  <div class="toggle-section">
+    <label><input type="checkbox" id="showWalls" checked onchange="toggleWalls()"> 🧱 Show Walls</label>
+    <label><input type="checkbox" id="showWaypoints" onchange="toggleWaypoints()"> 🎯 Show Waypoints</label>
+  </div>
+
+  <div id="pathInfo" class="info-card path-info" style="display: none;"></div>
+  <div id="map"></div>
+  
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Configuration
+    const BACKEND_URL = 'http://localhost:3000';
+    const FAST_POLLING_INTERVAL = 500;
+    const NORMAL_POLLING_INTERVAL = 2000;
+    const PROXIMITY_THRESHOLD = 50;
+    const POSITION_CHANGE_THRESHOLD = 5; // FIXED: Changed from 999999 to 5 units
+
+    // State management
+    let state = {
+      currentPath: null,
+      currentStep: 0,
+      navigationActive: false,
+      userLocation: null,
+      pollingInterval: null,
+      isTracking: false, // NEW: Track if polling is active
+      isFirstLoad: true,
+      connectionError: false,
+      lastUpdateTime: null
+    };
+
+    // Map elements
+    let map, userMarker, pathLine;
+    let pathMarkers = [];
+    let waypointMarkers = [];
+    let wallLayers = [];
+
+    // Wall collision detection
+    class Point {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+    }
+
+    function getIntersection(p1, q1, p2, q2) {
+      let A1 = q1.y - p1.y;
+      let B1 = p1.x - q1.x;
+      let C1 = A1 * p1.x + B1 * p1.y;
+      
+      let A2 = q2.y - p2.y;
+      let B2 = p2.x - q2.x;
+      let C2 = A2 * p2.x + B2 * p2.y;
+      
+      let determinant = A1 * B2 - A2 * B1;
+      
+      if (Math.abs(determinant) < 0.001) return null;
+      
+      let x = (B2 * C1 - B1 * C2) / determinant;
+      let y = (A1 * C2 - A2 * C1) / determinant;
+      return new Point(x, y);
+    }
+
+    function onSegment(p, r, q) {
+      return (
+        r.x >= Math.min(p.x, q.x) - 0.1 && r.x <= Math.max(p.x, q.x) + 0.1 &&
+        r.y >= Math.min(p.y, q.y) - 0.1 && r.y <= Math.max(p.y, q.y) + 0.1
+      );
+    }
+
+    function doesPathCrossWall(start, end, walls) {
+      const pathStart = new Point(start[0], start[1]);
+      const pathEnd = new Point(end[0], end[1]);
+      
+      for (let wall of walls) {
+        const wallStart = new Point(wall.start[0], wall.start[1]);
+        const wallEnd = new Point(wall.end[0], wall.end[1]);
+        
+        const intersection = getIntersection(pathStart, pathEnd, wallStart, wallEnd);
+        
+        if (intersection && onSegment(pathStart, intersection, pathEnd) && 
+            onSegment(wallStart, intersection, wallEnd)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Walls data
+    const walls = [
+      { start: [559, 310], end: [559, 370], color: 'red' },
+      { start: [559, 370], end: [496, 461], color: 'red' },
+      { start: [496, 461], end: [300, 461], color: 'red' },
+      { start: [300, 461], end: [320, 385], color: 'red' },
+      { start: [320, 385], end: [395, 326], color: 'red' },
+      { start: [395, 326], end: [450, 310], color: 'red' },
+      { start: [450, 310], end: [559, 310], color: 'red' },
+      { start: [480, 542], end: [380, 540], color: 'red' },
+      { start: [380, 540], end: [300, 618], color: 'red' },
+      { start: [300, 618], end: [300, 683], color: 'red' },
+      { start: [300, 683], end: [483, 690], color: 'red' },
+      { start: [260, 340], end: [260, 552], color: 'red' },
+      { start: [255, 690], end: [80, 690], color: 'red' },
+      { start: [263, 659], end: [235, 660], color: 'red' },
+      { start: [205, 659], end: [137, 663], color: 'red' },
+      { start: [108, 663], end: [74, 663], color: 'red' },
+      { start: [265, 664], end: [265, 573], color: 'red' },
+      { start: [264, 575], end: [138, 575], color: 'red' },
+      { start: [263, 546], end: [233, 546], color: 'red' },
+      { start: [213, 546], end: [137, 546], color: 'red' },
+      { start: [140, 575], end: [1, 575], color: 'red' },
+      { start: [136, 548], end: [136, 464], color: 'red' },
+      { start: [490, 538], end: [490, 925], color: 'red' },
+      { start: [411, 925], end: [411, 726], color: 'red' },
+      { start: [389, 727], end: [291, 727], color: 'red' },
+      { start: [487, 765], end: [439, 765], color: 'red' },
+      { start: [264, 720], end: [264, 888], color: 'red' },
+      { start: [414, 888], end: [264, 888], color: 'red' },
+      { start: [167, 575], end: [167, 662], color: 'red' },
+      { start: [261, 844], end: [187, 844], color: 'red' },
+      { start: [187, 843], end: [187, 802], color: 'red' },
+      { start: [184, 811], end: [75, 811], color: 'red' },
+      { start: [75, 811], end: [75, 689], color: 'red' },
+      { start: [76, 578], end: [76, 662], color: 'red' },
+      { start: [75, 688], end: [75, 767], color: 'red' },
+      { start: [75, 767], end: [39, 767], color: 'red' },
+      { start: [39, 765], end: [39, 775], color: 'red' },
+      { start: [39, 775], end: [2, 775], color: 'red' },
+      { start: [2, 775], end: [2, 577], color: 'red' },
+      { start: [170, 464], end: [170, 548], color: 'red' },
+      { start: [1, 574], end: [1, 464], color: 'red' },
+      { start: [1, 464], end: [261, 464], color: 'red' },
+      { start: [259, 341], end: [65, 341], color: 'red' },
+      { start: [65, 460], end: [264, 460], color: 'red' },
+      { start: [65, 341], end: [65, 460], color: 'red' },
+      { start: [192, 341], end: [194, 460], color: 'red' },
+      { start: [264, 310], end: [2, 310], color: 'red' },
+      { start: [64, 318], end: [64, 310], color: 'red' },
+      { start: [2, 311], end: [2, 460], color: 'red' },
+      { start: [47, 121], end: [1, 155], color: 'red' },
+      { start: [47, 121], end: [260, 121], color: 'red' },
+      { start: [260, 278], end: [260, 82], color: 'red' },
+      { start: [260, 82], end: [414, 82], color: 'red' },
+      { start: [414, 82], end: [414, 270], color: 'red' },
+      { start: [386, 198], end: [262, 198], color: 'red' },
+      { start: [386, 272], end: [264, 272], color: 'red' },
+      { start: [386, 272], end: [386, 221], color: 'red' },
+      { start: [415, 117], end: [794, 117], color: 'red' },
+      { start: [561, 117], end: [564, 273], color: 'red' },
+      { start: [537, 273], end: [416, 273], color: 'red' },
+      { start: [564, 273], end: [612, 273], color: 'red' },
+      { start: [561, 117], end: [639, 117], color: 'red' },
+      { start: [639, 117], end: [639, 273], color: 'red' },
+      { start: [510, 538], end: [617, 538], color: 'red' },
+      { start: [639, 538], end: [639, 632], color: 'red' },
+      { start: [639, 632], end: [489, 632], color: 'red' },
+      { start: [489, 632], end: [489, 539], color: 'red' },
+      { start: [690, 273], end: [640, 273], color: 'red' },
+      { start: [719, 117], end: [719, 273], color: 'red' },
+      { start: [747, 273], end: [794, 273], color: 'red' },
+      { start: [745, 197], end: [841, 197], color: 'red' },
+      { start: [794, 273], end: [794, 76], color: 'red' },
+      { start: [794, 76], end: [999, 76], color: 'red' },
+      { start: [794, 273], end: [822, 273], color: 'red' },
+      { start: [841, 273], end: [841, 196], color: 'red' },
+      { start: [869, 209], end: [869, 76], color: 'red' },
+      { start: [895, 187], end: [1000, 187], color: 'red' },
+      { start: [869, 235], end: [1001, 235], color: 'red' },
+      { start: [867, 282], end: [867, 235], color: 'red' },
+      { start: [944, 238], end: [944, 312], color: 'red' },
+      { start: [944, 312], end: [867, 312], color: 'red' },
+      { start: [999, 76], end: [999, 327], color: 'red' },
+      { start: [944, 312], end: [999, 327], color: 'red' },
+      { start: [640, 538], end: [946, 538], color: 'red' },
+      { start: [946, 538], end: [1001, 519], color: 'red' },
+      { start: [639, 310], end: [766, 310], color: 'red' },
+      { start: [792, 310], end: [792, 461], color: 'red' },
+      { start: [792, 461], end: [717, 461], color: 'red' },
+      { start: [717, 461], end: [717, 312], color: 'red' },
+      { start: [639, 387], end: [766, 387], color: 'red' },
+      { start: [639, 387], end: [639, 310], color: 'red' },
+      { start: [639, 387], end: [715, 387], color: 'red' },
+      { start: [906, 210], end: [906, 235], color: 'red' },
+      { start: [411, 925], end: [489, 925], color: 'red' }
+    ];
+
+    // Rooms and waypoints
+    const rooms = {
+      "CR23": [400, 738], "CR22": [250, 700], "CR21": [550, 253],
+      "UG3": [70, 675], "LAB09": [225, 647], "LAB08": [130, 562],
+      "LAB07": [60, 329], "LAB06": [175, 355], "LAB05": [400, 182],
+      "Meeting Room": [705, 263], "LAB04": [620, 263], "LAB03": [700, 316],
+      "LAB02": [780, 320], "faculty": [120, 649], "CSE conference Hall": [120, 236],
+      "Tutorial Class": [223, 537], "Girls Washroom": [500, 555], "Boys Washroom": [625, 550]
+    };
+
+    const waypoints = {
+      "Waypoint1": [780, 291], "Waypoint2": [703, 288], "Waypoint3": [550, 286],
+      "Waypoint5": [400, 285], "Waypoint6": [271, 325], "Waypoint7": [184, 325],
+      "Waypoint8": [272, 562], "Waypoint9": [184, 325], "Waypoint10": [228, 562],
+      "Waypoint11": [120, 675], "Waypoint12": [228, 675], "Waypoint13": [275, 675],
+      "Waypoint14": [275, 700], "Waypoint15": [400, 700], "Waypoint16": [170, 773],
+      "Waypoint17": [369, 496], "Waypoint18": [503, 497], "Waypoint19": [637, 290],
+      "Waypoint20": [631, 496], "Waypoint21": [596, 305], "Watpoint22": [841, 335]
+    };
+
+    function getDistance(a, b) {
+      return Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2));
+    }
+
+    // Build navigation graph
+    function buildNavigationGraph() {
+      const allNodes = { ...rooms, ...waypoints };
+      const graph = {};
+      
+      Object.keys(allNodes).forEach(node => {
+        graph[node] = {};
+      });
+
+      const nodeEntries = Object.entries(allNodes);
+      
+      for (let i = 0; i < nodeEntries.length; i++) {
+        for (let j = i + 1; j < nodeEntries.length; j++) {
+          const [name1, coord1] = nodeEntries[i];
+          const [name2, coord2] = nodeEntries[j];
+          
+          const distance = getDistance(coord1, coord2);
+          if (distance < 300 && !doesPathCrossWall(coord1, coord2, walls)) {
+            graph[name1][name2] = distance;
+            graph[name2][name1] = distance;
+          }
+        }
+      }
+
+      return graph;
+    }
+
+    const navigationGraph = buildNavigationGraph();
+
+    // Dijkstra's algorithm
+    function dijkstra(graph, start, goal) {
+      const distances = {};
+      const previous = {};
+      const unvisited = new Set();
+
+      Object.keys(graph).forEach(node => {
+        distances[node] = node === start ? 0 : Infinity;
+        previous[node] = null;
+        unvisited.add(node);
+      });
+
+      while (unvisited.size > 0) {
+        let current = null;
+        let minDistance = Infinity;
+        
+        for (const node of unvisited) {
+          if (distances[node] < minDistance) {
+            minDistance = distances[node];
+            current = node;
+          }
+        }
+
+        if (current === null || distances[current] === Infinity) return null;
+
+        unvisited.delete(current);
+
+        if (current === goal) {
+          const path = [];
+          let temp = current;
+          while (temp !== null) {
+            path.unshift(temp);
+            temp = previous[temp];
+          }
+          return { path, distance: distances[goal] };
+        }
+
+        if (graph[current]) {
+          Object.entries(graph[current]).forEach(([neighbor, weight]) => {
+            if (unvisited.has(neighbor)) {
+              const newDistance = distances[current] + weight;
+              if (newDistance < distances[neighbor]) {
+                distances[neighbor] = newDistance;
+                previous[neighbor] = current;
+              }
+            }
+          });
+        }
+      }
+
+      return null;
+    }
+
+    // Connection status
+    function showConnectionStatus(message, type = 'warning') {
+      const statusDiv = document.getElementById('connectionStatus');
+      const messageSpan = document.getElementById('connectionMessage');
+      
+      messageSpan.textContent = message;
+      statusDiv.style.display = 'block';
+      
+      if (type === 'error') {
+        statusDiv.style.background = 'rgba(254, 226, 226, 0.95)';
+        statusDiv.style.color = '#991b1b';
+        statusDiv.style.borderLeftColor = '#ef4444';
+      } else if (type === 'success') {
+        statusDiv.style.background = 'rgba(220, 252, 231, 0.95)';
+        statusDiv.style.color = '#065f46';
+        statusDiv.style.borderLeftColor = '#10b981';
+        setTimeout(() => statusDiv.style.display = 'none', 3000);
+      }
+    }
+
+    function hideConnectionStatus() {
+      document.getElementById('connectionStatus').style.display = 'none';
+    }
+
+    // Fetch user location from API
+    async function fetchUserLocationFromAPI() {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/user-position`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const position = await response.json();
+        
+        if (!Array.isArray(position) || position.length !== 2 || 
+            typeof position[0] !== 'number' || typeof position[1] !== 'number') {
+          throw new Error('Invalid position format');
+        }
+        
+        state.connectionError = false;
+        hideConnectionStatus();
+        
+        return position;
+        
+      } catch (error) {
+        console.error('❌ Error fetching position:', error);
+        
+        if (!state.connectionError) {
+          showConnectionStatus(`Server error: ${error.message}`, 'error');
+          state.connectionError = true;
+        }
+        
+        return state.userLocation || [500, 500];
+      }
+    }
+
+    // Update user marker - SIMPLIFIED AND FIXED
+    function updateUserMarker(newLocation, isDefault = false) {
+      const oldLocation = state.userLocation;
+      
+      // Calculate distance change
+      const distanceChange = oldLocation ? getDistance(oldLocation, newLocation) : Infinity;
+      
+      // ONLY skip if tracking is active AND movement is too small
+      if (state.isTracking && oldLocation && distanceChange < POSITION_CHANGE_THRESHOLD) {
+        console.log(`⏸️ Skipping update - movement too small: ${distanceChange.toFixed(2)} units`);
+        return;
+      }
+      
+      console.log(`✅ Updating marker - movement: ${distanceChange.toFixed(2)} units, tracking: ${state.isTracking}`);
+      state.userLocation = newLocation;
+      
+      if (userMarker) {
+        // Update existing marker instantly
+        userMarker.setLatLng(newLocation);
+        
+        if (userMarker.pulseCircle) {
+          userMarker.pulseCircle.setLatLng(newLocation);
+        }
+        
+        userMarker.setStyle({
+          color: isDefault ? 'orange' : '#43e97b',
+          fillColor: isDefault ? '#ff9800' : '#43e97b',
+          fillOpacity: 0.9,
+          radius: 12,
+          weight: 3
+        });
+      } else {
+        // Create new marker
+        userMarker = L.circleMarker(newLocation, {
+          color: isDefault ? 'orange' : '#43e97b',
+          fillColor: isDefault ? '#ff9800' : '#43e97b',
+          fillOpacity: 0.9,
+          radius: 12,
+          weight: 3,
+          className: 'user-position-marker'
+        }).addTo(map);
+        
+        // Static pulse circle
+        const pulseCircle = L.circle(newLocation, {
+          color: isDefault ? '#ff9800' : '#43e97b',
+          fillColor: isDefault ? '#ff9800' : '#43e97b',
+          fillOpacity: 0.1,
+          radius: 30,
+          weight: 1
+        }).addTo(map);
+        
+        userMarker.pulseCircle = pulseCircle;
+      }
+      
+      userMarker.bindPopup(
+        isDefault ? 
+        '<b>🟠 Default Location</b><br>(Beacons not detected)' : 
+        '<b>🟢 Live Location</b><br>(BLE Active)'
+      );
+    }
+
+    // Fetch and update user location
+    async function fetchUserLocation() {
+      const statusElement = document.getElementById('currentLocation');
+      const findPathBtn = document.getElementById('findPathBtn');
+      
+      if (state.isFirstLoad) {
+        statusElement.textContent = 'Fetching location from server...';
+      }
+      
+      const userPosition = await fetchUserLocationFromAPI();
+      const isDefault = (userPosition[0] === 500 && userPosition[1] === 500);
+      
+      // ALWAYS update marker when fetching location
+      updateUserMarker(userPosition, isDefault);
+      
+      statusElement.textContent = isDefault ? 
+        `🟠 Default: [${userPosition[0]}, ${userPosition[1]}] (Beacons offline)` :
+        `🟢 Live: [${userPosition[0].toFixed(1)}, ${userPosition[1].toFixed(1)}] (BLE Active)`;
+      
+      statusElement.style.color = isDefault ? '#c05621' : '#38a169';
+      
+      if (state.navigationActive && state.currentPath) {
+        updateNavigationProgress();
+      }
+      
+      findPathBtn.disabled = false;
+      state.lastUpdateTime = Date.now();
+      
+      if (state.isFirstLoad) {
+        map.setView(userPosition, map.getZoom());
+        state.isFirstLoad = false;
+      }
+    }
+
+    // Start location polling - FIXED
+    function startLocationPolling() {
+      if (state.pollingInterval) {
+        console.log('⚠️ Polling already active');
+        return;
+      }
+      
+      // Set tracking flag to TRUE
+      state.isTracking = true;
+      
+      const interval = state.navigationActive ? FAST_POLLING_INTERVAL : NORMAL_POLLING_INTERVAL;
+      
+      // Fetch immediately
+      fetchUserLocation();
+      
+      // Start polling
+      state.pollingInterval = setInterval(fetchUserLocation, interval);
+      
+      const badge = document.getElementById('trackingBadge');
+      badge.textContent = state.navigationActive ? 'Tracking: FAST' : 'Tracking: ON';
+      badge.className = 'tracking-badge tracking-active';
+      
+      console.log(`📍 Polling started (${interval}ms interval) - TRACKING ACTIVE`);
+    }
+
+    // Stop location polling - FIXED
+    function stopLocationPolling() {
+      if (state.pollingInterval) {
+        clearInterval(state.pollingInterval);
+        state.pollingInterval = null;
+        
+        // Set tracking flag to FALSE
+        state.isTracking = false;
+        
+        const badge = document.getElementById('trackingBadge');
+        badge.textContent = 'Tracking: OFF';
+        badge.className = 'tracking-badge tracking-inactive';
+        
+        console.log('⏸️ Polling stopped - TRACKING INACTIVE');
+      }
+    }
+
+    // Switch to fast polling
+    function switchToFastPolling() {
+      if (state.pollingInterval) {
+        stopLocationPolling();
+        startLocationPolling();
+      }
+    }
+
+    // Initialize map
+    map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -2,
+      maxZoom: 2,
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false
+    });
+
+    const bounds = [[0, 0], [1000, 1000]];
+    
+    const img = new Image();
+    img.onload = function() {
+      L.imageOverlay('floorplan.jpeg', bounds).addTo(map);
+      map.fitBounds(bounds);
+    };
+    
+    img.onerror = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1000;
+      canvas.height = 1000;
+      const ctx = canvas.getContext('2d');
+      
+      const gradient = ctx.createLinearGradient(0, 0, 1000, 1000);
+      gradient.addColorStop(0, '#f7fafc');
+      gradient.addColorStop(1, '#edf2f7');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1000, 1000);
+      
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 1000; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 1000);
+        ctx.moveTo(0, i);
+        ctx.lineTo(1000, i);
+        ctx.stroke();
+      }
+      
+      L.imageOverlay(canvas.toDataURL(), bounds).addTo(map);
+      map.fitBounds(bounds);
+    };
+    
+    img.src = 'floorplan.jpeg';
+
+    // Add walls
+    walls.forEach(wall => {
+      const layer = L.polyline([wall.start, wall.end], {
+        color: '#e53e3e',
+        weight: 4,
+        opacity: 0.7
+      }).addTo(map);
+      wallLayers.push(layer);
+    });
+
+    // Add room markers
+    Object.entries(rooms).forEach(([name, coord]) => {
+      L.marker(coord, {
+        icon: L.divIcon({
+          className: 'room-marker',
+          html: `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">${name}</div>`,
+          iconSize: [100, 24],
+          iconAnchor: [50, 12]
+        })
+      }).addTo(map).bindPopup(`<b>${name}</b>`);
+    });
+
+    // Add waypoint markers (hidden by default)
+    Object.entries(waypoints).forEach(([name, coord]) => {
+      const marker = L.circleMarker(coord, { 
+        color: '#ed8936', 
+        fillColor: '#ed8936',
+        fillOpacity: 0.4,
+        radius: 4,
+        weight: 2
+      }).bindPopup(`<b>${name}</b>`);
+      waypointMarkers.push(marker);
+    });
+
+    // Populate dropdown
+    const endSelect = document.getElementById("end");
+    Object.keys(rooms).sort().forEach(room => {
+      endSelect.add(new Option(room, room));
+    });
+
+    // Toggle functions
+    function toggleWalls() {
+      const show = document.getElementById('showWalls').checked;
+      wallLayers.forEach(layer => {
+        if (show) map.addLayer(layer);
+        else map.removeLayer(layer);
+      });
+    }
+
+    function toggleWaypoints() {
+      const show = document.getElementById('showWaypoints').checked;
+      waypointMarkers.forEach(marker => {
+        if (show) map.addLayer(marker);
+        else map.removeLayer(marker);
+      });
+    }
+
+    // Clear path
+    function clearPath() {
+      if (pathLine) {
+        map.removeLayer(pathLine);
+        pathLine = null;
+      }
+      
+      pathMarkers.forEach(marker => map.removeLayer(marker));
+      pathMarkers = [];
+      
+      stopNavigation();
+      document.getElementById('pathInfo').style.display = 'none';
+      document.getElementById('end').value = '';
+    }
+
+    // Find path
+    function findPath() {
+      const end = endSelect.value;
+      const pathInfoDiv = document.getElementById('pathInfo');
+
+      if (!state.userLocation) {
+        alert("⚠️ User location not available!");
+        return;
+      }
+
+      if (!end) {
+        alert("⚠️ Please select a destination!");
+        return;
+      }
+
+      clearPath();
+
+      const tempGraph = JSON.parse(JSON.stringify(navigationGraph));
+      tempGraph['USER_START'] = {};
+      
+      const allNodes = { ...rooms, ...waypoints };
+      Object.entries(allNodes).forEach(([name, coord]) => {
+        const distance = getDistance(state.userLocation, coord);
+        if (distance < 300 && !doesPathCrossWall(state.userLocation, coord, walls)) {
+          tempGraph['USER_START'][name] = distance;
+          if (!tempGraph[name]) tempGraph[name] = {};
+          tempGraph[name]['USER_START'] = distance;
+        }
+      });
+
+      const result = dijkstra(tempGraph, 'USER_START', end);
+      
+      if (!result) {
+        alert("❌ No valid path found!");
+        return;
+      }
+
+      const { path, distance } = result;
+
+      const pathCoords = path.map(nodeName => {
+        if (nodeName === 'USER_START') return state.userLocation;
+        return rooms[nodeName] || waypoints[nodeName];
+      });
+
+      state.currentPath = {
+        coordinates: pathCoords,
+        nodes: path,
+        destination: end,
+        totalDistance: distance,
+        startTime: Date.now(),
+        currentStep: 0
+      };
+      
+      state.currentStep = 0;
+      startNavigation();
+
+      const displayPath = path.map(n => 
+        n === 'USER_START' ? '📍 Start' : 
+        n.startsWith('Waypoint') ? '→' : `🎯 ${n}`
+      ).filter((n, i, arr) => !n.includes('→') || arr.length < 10);
+      
+      pathInfoDiv.innerHTML = `
+        <strong>🗺️ Route:</strong> ${displayPath.join(' ')} <br>
+        <strong>📏 Distance:</strong> ${distance.toFixed(1)} units | 
+        <strong>🎯 Via:</strong> ${path.filter(p => p.startsWith('Waypoint')).length} waypoints
+      `;
+      pathInfoDiv.style.display = 'block';
+
+      pathLine = L.polyline(pathCoords, { 
+        color: '#667eea', 
+        weight: 6, 
+        opacity: 0.8,
+        dashArray: '10, 5',
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      pathCoords.forEach((coord, index) => {
+        const nodeName = path[index];
+        if (index === 0 || index === pathCoords.length - 1 || !nodeName.startsWith('Waypoint')) {
+          const isStart = index === 0;
+          const isEnd = index === pathCoords.length - 1;
+          
+          const marker = L.circleMarker(coord, {
+            color: isStart ? '#43e97b' : (isEnd ? '#f5576c' : '#4facfe'),
+            fillColor: 'white',
+            fillOpacity: 1,
+            radius: 10,
+            weight: 3
+          }).addTo(map);
+          
+          marker.bindPopup(`
+            <b>${nodeName === 'USER_START' ? '🚀 Start' : (isEnd ? '🎯 ' : '📍 ') + nodeName}</b><br>
+            Step ${index + 1} of ${pathCoords.length}
+          `);
+          
+          pathMarkers.push(marker);
+        }
+      });
+
+      map.fitBounds(pathLine.getBounds(), { padding: [50, 50] });
+    }
+
+    // Start navigation
+    function startNavigation() {
+      state.navigationActive = true;
+      document.getElementById('navigationInfo').style.display = 'block';
+      
+      if (state.pollingInterval) {
+        stopLocationPolling();
+      }
+      startLocationPolling();
+      
+      console.log('🚗 Navigation started - Fast tracking enabled');
+      updateNavigationStatus();
+    }
+
+    // Stop navigation
+    function stopNavigation() {
+      state.navigationActive = false;
+      state.currentPath = null;
+      state.currentStep = 0;
+      
+      document.getElementById('navigationInfo').style.display = 'none';
+      document.getElementById('progressFill').style.width = '0%';
+      
+      if (state.pollingInterval) {
+        stopLocationPolling();
+        startLocationPolling();
+      }
+      
+      console.log('🛑 Navigation stopped');
+    }
+
+    // Update navigation progress
+    function updateNavigationProgress() {
+      if (!state.currentPath || !state.userLocation) return;
+      
+      const pathCoords = state.currentPath.coordinates;
+      let closestDistance = Infinity;
+      let closestIndex = state.currentStep;
+      
+      for (let i = state.currentStep; i < pathCoords.length; i++) {
+        const distance = getDistance(state.userLocation, pathCoords[i]);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = i;
+        }
+      }
+      
+      if (closestIndex > state.currentStep && closestDistance < PROXIMITY_THRESHOLD) {
+        state.currentStep = closestIndex;
+        
+        console.log(`✅ Waypoint ${state.currentStep + 1}/${pathCoords.length} reached`);
+        
+        if (state.currentStep === pathCoords.length - 1) {
+          onDestinationReached();
+          return;
+        }
+      }
+      
+      updateNavigationStatus();
+    }
+
+    // Update navigation status display
+    function updateNavigationStatus() {
+      const statusElement = document.getElementById('navStatus');
+      const progressElement = document.getElementById('progressFill');
+      const nextStepElement = document.getElementById('nextStep');
+      
+      if (!statusElement || !state.currentPath) return;
+      
+      const progress = Math.round(((state.currentStep + 1) / state.currentPath.coordinates.length) * 100);
+      const remainingSteps = state.currentPath.coordinates.length - state.currentStep - 1;
+      const distanceToNext = state.userLocation && state.currentStep < state.currentPath.coordinates.length - 1
+        ? getDistance(state.userLocation, state.currentPath.coordinates[state.currentStep + 1])
+        : 0;
+      
+      progressElement.style.width = `${progress}%`;
+      
+      if (state.currentStep < state.currentPath.nodes.length - 1) {
+        const nextNode = state.currentPath.nodes[state.currentStep + 1];
+        const nextName = nextNode === 'USER_START' ? 'Start' : 
+                        nextNode.startsWith('Waypoint') ? 'Waypoint' : nextNode;
+        nextStepElement.textContent = `${nextName} (${distanceToNext.toFixed(0)}m)`;
+      } else {
+        nextStepElement.textContent = 'Destination';
+      }
+      
+      statusElement.innerHTML = `
+        <strong>${progress}%</strong> Complete • ${remainingSteps} steps to <strong>${state.currentPath.destination}</strong>
+      `;
+    }
+
+    // Destination reached
+    function onDestinationReached() {
+      const statusElement = document.getElementById('navStatus');
+      const progressElement = document.getElementById('progressFill');
+      
+      progressElement.style.width = '100%';
+      
+      if (statusElement) {
+        statusElement.innerHTML = `
+          <strong>🎉 Destination Reached!</strong> Welcome to ${state.currentPath.destination}
+        `;
+      }
+      
+      setTimeout(() => {
+        alert(`🎉 Congratulations! You have arrived at ${state.currentPath.destination}`);
+        stopNavigation();
+      }, 500);
+    }
+
+    // Test backend
+    async function testBackendConnection() {
+      try {
+        showConnectionStatus('Testing server connection...', 'warning');
+        
+        const response = await fetch(`${BACKEND_URL}/health`, {
+          method: 'GET'
+        });
+        
+        if (response.ok) {
+          showConnectionStatus('✓ Connected to backend', 'success');
+          return true;
+        } else {
+          throw new Error('Server error');
+        }
+      } catch (error) {
+        showConnectionStatus('⚠️ Cannot connect to server. Using default location.', 'error');
+        return false;
+      }
+    }
+
+    // Initialize
+    window.addEventListener('load', async () => {
+      console.log('🚀 Indoor Navigation System Starting...');
+      console.log(`📡 Backend: ${BACKEND_URL}`);
+      console.log(`⚡ Fast Polling: ${FAST_POLLING_INTERVAL}ms`);
+      console.log(`🔄 Normal Polling: ${NORMAL_POLLING_INTERVAL}ms`);
+      console.log(`📏 Position Change Threshold: ${POSITION_CHANGE_THRESHOLD} units`);
+      
+      await testBackendConnection();
+      await fetchUserLocation();
+      
+      console.log('✅ System Ready');
+      console.log('💡 Click "Start Tracking" to enable real-time location updates');
+    });
+
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      stopLocationPolling();
+    });
+
+    // Handle tab visibility
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        console.log('⏸️ Tab hidden - tracking paused');
+      } else {
+        console.log('▶️ Tab visible');
+        if (state.isTracking) {
+          console.log('📍 Tracking active - fetching position');
+          fetchUserLocation();
+        } else {
+          console.log('🔒 Tracking OFF - marker stays locked');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
